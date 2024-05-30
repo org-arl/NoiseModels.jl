@@ -1,6 +1,6 @@
 import Optimization: OptimizationFunction, OptimizationProblem, solve, SciMLBase, AutoZygote
 import OptimizationOptimJL: BFGS
-import Statistics: mean, std
+import Statistics: cov, std
 import Random: GLOBAL_RNG, AbstractRNG
 import Zygote
 
@@ -35,7 +35,7 @@ function fit(::Type{GaussianNoiseModel}, data::AbstractMatrix; maxlag=64, maxite
   Threads.@threads for i ∈ 1:nchannels
     for j ∈ 1:nchannels
       @simd for δ ∈ 0:maxlag
-        @inbounds R̄[i,j,δ+1] = @views mean(data[1+δ:end,i] .* data[1:end-δ,j])
+        @inbounds R̄[i,j,δ+1] = @views cov(data[1+δ:end,i], data[1:end-δ,j])
       end
     end
   end
@@ -84,7 +84,7 @@ function _gaussian_loss(u, R̄)
   α = reshape(u, size(R̄))
   s = 0.0
   @inbounds for i ∈ 1:size(R̄,1), j ∈ 1:size(R̄,2), δ ∈ 0:size(R̄,3)-1
-    R = @views sum(α[i,:,δ+1:end] .* α[j,:,1:end-δ])
+    R = @views sum(α[i,:,1:end-δ] .* α[j,:,1+δ:end])
     s += abs2(R̄[i,j,δ+1] - R)
   end
   s, nothing
